@@ -1,5 +1,5 @@
 #:package Azure.Storage.Blobs@12.*
-// samples N random doc blobs: asserts 100 valid JSON lines, no duplicate (src,seq), docGuid matches path
+// samples N random doc blobs: asserts a valid line count (200, or 2000 for "big" docs), no duplicate (src,seq), docGuid matches path
 using System.Text.Json;
 using Azure.Storage.Blobs;
 var cs = "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:27000/devstoreaccount1;QueueEndpoint=http://127.0.0.1:27001/devstoreaccount1;";
@@ -22,7 +22,7 @@ foreach (var name in names.OrderBy(_ => rnd.Next()).Take(20))
         if (!keys.Add(r.GetProperty("src").GetString() + ":" + r.GetProperty("seq").GetInt64())) dupes++;
         if (name != r.GetProperty("docGuid").GetString() + "/log.jsonl") wrongDoc++;
     }
-    var ok = lines.Length == 100 && dupes == 0 && wrongDoc == 0;
+    var ok = (lines.Length == 200 || lines.Length == 2000) && dupes == 0 && wrongDoc == 0; // ponytail: matches apphost.cs LINES_PER_DOC/BIG_DOC_LINES; keep in sync if those change
     if (!ok) { bad++; Console.WriteLine($"BAD {name}: lines={lines.Length} dupes={dupes} wrongDoc={wrongDoc}"); }
 }
-Console.WriteLine(bad == 0 ? "ALL 20 SAMPLES OK: 100 valid JSON lines each, no dupes, right doc" : $"{bad} bad");
+Console.WriteLine(bad == 0 ? "ALL 20 SAMPLES OK: valid JSON lines each, no dupes, right doc" : $"{bad} bad");

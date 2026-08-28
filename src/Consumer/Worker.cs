@@ -1,3 +1,4 @@
+using System.IO;
 using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
@@ -32,7 +33,7 @@ public sealed class Worker(
         while (!ct.IsCancellationRequested)
         {
             QueueMessage[] msgs;
-            try { msgs = (await queue.ReceiveMessagesAsync(32, TimeSpan.FromMinutes(2), ct)).Value; }
+            try { msgs = (await queue.ReceiveMessagesAsync(32, TimeSpan.FromMinutes(30), ct)).Value; }
             catch (OperationCanceledException) { break; }
             if (msgs.Length == 0) { await Task.Delay(500, ct); continue; }
 
@@ -41,22 +42,30 @@ public sealed class Worker(
             long batchLines = 0;
             foreach (var m in msgs)
             {
-                if (m.DequeueCount > 5)
+                if (m.DequeueCount > 2) // allow 2 appearances (1 retry), then deadletter
                 {
                     await poison.SendMessageAsync(m.MessageText, ct);
                     await queue.DeleteMessageAsync(m.MessageId, m.PopReceipt, ct);
                     log.LogWarning("Poisoned message {Id} after {N} dequeues", m.MessageId, m.DequeueCount);
                     continue;
                 }
-                using var doc = JsonDocument.Parse(Gunzip(m.MessageText));
-                foreach (var el in doc.RootElement.GetProperty("lines").EnumerateArray())
+                try
                 {
-                    var id = el.GetProperty("docGuid").GetString()!;
-                    if (!byDoc.TryGetValue(id, out var sb)) byDoc[id] = sb = new StringBuilder();
-                    sb.Append(el.GetRawText()).Append('\n');
-                    batchLines++;
+                    using var doc = JsonDocument.Parse(Gunzip(m.MessageText));
+                    foreach (var el in doc.RootElement.GetProperty("lines").EnumerateArray())
+                    {
+                        var id = el.GetProperty("docGuid").GetString()!;
+                        if (!byDoc.TryGetValue(id, out var sb)) byDoc[id] = sb = new StringBuilder();
+                        sb.Append(el.GetRawText()).Append('\n');
+                        batchLines++;
+                    }
+                    keep.Add(m);
                 }
-                keep.Add(m);
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    // ponytail: leave it in the queue on bad decode/parse; DequeueCount>5 above poisons it after retries
+                    log.LogWarning(ex, "Malformed message {Id}, dequeue count {N}", m.MessageId, m.DequeueCount);
+                }
             }
 
             await Parallel.ForEachAsync(byDoc,
@@ -71,7 +80,13 @@ public sealed class Worker(
                 {
                     int len = Math.Min(Max, bytes.Length - off);
                     if (off + len < bytes.Length) // split only at a line boundary so a foreign interleaved block can't corrupt a record
-                        len = Array.LastIndexOf(bytes, (byte)'\n', off + len - 1) - off + 1;
+                    {
+                        int nl = Array.LastIndexOf(bytes, (byte)'\n', off + len - 1, len);
+                        len = nl >= 0
+                            ? nl - off + 1
+                            // one record's line is bigger than a chunk; take the whole line instead of a zero-length block
+                            : (Array.IndexOf(bytes, (byte)'\n', off + len) is int next && next >= 0 ? next + 1 : bytes.Length) - off;
+                    }
                     using var ms = new MemoryStream(bytes, off, len);
                     try
                     {
@@ -98,10 +113,20 @@ public sealed class Worker(
         }
     }
 
+    const int MaxExpandedBytes = 16 * 1024 * 1024; // ponytail: governor cap against a runaway gzip expansion; raise if legit batches ever get this big
+
     static string Gunzip(string b64)
     {
         using var gz = new GZipStream(new MemoryStream(Convert.FromBase64String(b64)), CompressionMode.Decompress);
-        using var r = new StreamReader(gz, Encoding.UTF8);
-        return r.ReadToEnd();
+        using var ms = new MemoryStream();
+        var buf = new byte[81920];
+        int total = 0, n;
+        while ((n = gz.Read(buf, 0, buf.Length)) > 0)
+        {
+            total += n;
+            if (total > MaxExpandedBytes) throw new InvalidDataException($"decompressed message exceeds {MaxExpandedBytes:N0} bytes");
+            ms.Write(buf, 0, n);
+        }
+        return Encoding.UTF8.GetString(ms.ToArray());
     }
 }

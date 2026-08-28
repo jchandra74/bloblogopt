@@ -31,9 +31,10 @@ public sealed class QueueLogSink(QueueClient queue) : IBatchedLogEventSink
                 docGuid,
                 Src,
                 Interlocked.Increment(ref _seq)));
-            if (size + rec.Length > RawCap && lines.Count > 0) { sends.Add(Send(lines)); lines = []; size = 0; }
+            int recBytes = Encoding.UTF8.GetByteCount(rec); // ponytail: byte-accurate (non-ASCII inflates past char count)
+            if (size + recBytes > RawCap && lines.Count > 0) { sends.Add(Send(lines)); lines = []; size = 0; }
             lines.Add(rec);
-            size += rec.Length + 1;
+            size += recBytes + 1;
         }
         if (lines.Count > 0) sends.Add(Send(lines));
         await Task.WhenAll(sends);

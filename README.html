@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BlobLogOpt POC</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #F7F9FA;
+    --surface: #FFFFFF;
+    --ink: #1B2733;
+    --muted: #5A6B7A;
+    --line: #D9E1E7;
+    --accent: #0E7490;
+    --accent-soft: #E0F1F5;
+    --warn: #B45309;
+    --warn-soft: #FBF0E1;
+    --ok: #15803D;
+    --ok-soft: #E4F3E9;
+    --code-bg: #EEF3F6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      color-scheme: dark;
+      --bg: #10161C;
+      --surface: #171F27;
+      --ink: #E3EAF0;
+      --muted: #8CA0B0;
+      --line: #2A3540;
+      --accent: #35C2DD;
+      --accent-soft: #12333C;
+      --warn: #E8963E;
+      --warn-soft: #33281A;
+      --ok: #4ADE80;
+      --ok-soft: #17301F;
+      --code-bg: #1D2731;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6;
+    margin: 0;
+    font-size: 16px;
+  }
+  main { max-width: 880px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+  header.doc { border-bottom: 2px solid var(--accent); padding-bottom: 1.5rem; margin-bottom: 2.5rem; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace; font-size: .75rem; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent); margin: 0 0 .5rem;
+  }
+  h1 { font-size: 2.4rem; font-weight: 700; margin: 0 0 .5rem; letter-spacing: -.02em; text-wrap: balance; }
+  .lede { font-size: 1.15rem; color: var(--muted); margin: 0; max-width: 42rem; }
+  .meta { font-family: "IBM Plex Mono", monospace; font-size: .8rem; color: var(--muted); margin-top: 1rem; }
+  h2 {
+    font-size: 1.5rem; font-weight: 600; letter-spacing: -.01em;
+    margin: 3rem 0 1rem; padding-top: 1.5rem; border-top: 1px solid var(--line);
+    text-wrap: balance;
+  }
+  h3 { font-size: 1.1rem; font-weight: 600; margin: 1.75rem 0 .5rem; }
+  p { margin: .75rem 0; max-width: 46rem; }
+  a { color: var(--accent); }
+  strong { font-weight: 600; }
+  code, pre {
+    font-family: "IBM Plex Mono", Consolas, monospace; font-size: .875em;
+  }
+  code { background: var(--code-bg); padding: .12em .35em; border-radius: 4px; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px;
+    padding: 1rem 1.25rem; overflow-x: auto; line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+  table {
+    border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .925rem;
+  }
+  .table-wrap { overflow-x: auto; }
+  th {
+    text-align: left; font-weight: 600; font-size: .8rem; text-transform: uppercase;
+    letter-spacing: .06em; color: var(--muted); border-bottom: 2px solid var(--line);
+    padding: .5rem .75rem .5rem 0;
+  }
+  td { border-bottom: 1px solid var(--line); padding: .55rem .75rem .55rem 0; vertical-align: top; }
+  td.num, th.num { font-variant-numeric: tabular-nums; }
+  .pill {
+    display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: .72rem;
+    padding: .15em .6em; border-radius: 999px; font-weight: 500; white-space: nowrap;
+  }
+  .pill.ok { background: var(--ok-soft); color: var(--ok); }
+  .pill.warn { background: var(--warn-soft); color: var(--warn); }
+  .pill.info { background: var(--accent-soft); color: var(--accent); }
+  .callout {
+    border-left: 3px solid var(--accent); background: var(--accent-soft);
+    padding: .75rem 1.1rem; border-radius: 0 8px 8px 0; margin: 1.25rem 0;
+  }
+  .callout.warn { border-color: var(--warn); background: var(--warn-soft); }
+  .callout p { margin: .25rem 0; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; margin: 1.25rem 0; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1rem 1.2rem;
+  }
+  .card h4 { margin: 0 0 .35rem; font-size: .95rem; font-weight: 600; color: var(--accent); }
+  .card p { margin: 0; font-size: .9rem; color: var(--muted); }
+  figure { margin: 1.5rem 0; }
+  figcaption { font-size: .85rem; color: var(--muted); margin-top: .5rem; }
+  .mermaid-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; }
+  ol, ul { max-width: 46rem; }
+  li { margin: .3rem 0; }
+</style>
+</head>
+<body>
+
+<main>
+<header class="doc">
+  <p class="eyebrow">Proof of concept · Internal engineering doc</p>
+  <h1>BlobLogOpt: the document-log pipe</h1>
+  <p class="lede">Replacing the single-consumer document-log funnel with a horizontally scalable pipeline: Serilog → Azure Storage Queue → parallel consumers → per-document Append Blobs → paged read API.</p>
+  <p class="meta">2026-08-28 · .NET 10 · Aspire 13.5 · Azurite · status: all acceptance tests passed</p>
+</header>
+
+<h2>1. The problem</h2>
+<p>Production behavior today: every log line that carries a <code>DocGuid</code> goes to a queue, and <strong>one single consumer</strong> writes it into that document's JSON log file by <strong>downloading, modifying, and re-uploading</strong> the whole blob. One consumer exists to guarantee ordering. At month start/end (10–20k docs/day, ~200 lines/doc) the queue backs up past <strong>2M+ messages</strong> and takes hours-to-days to recover.</p>
+<p>That is a funnel: a wide producer top and a fixed one-message-at-a-time bottom. The goal of this POC is a <strong>pipe</strong>: consumption capacity that scales with production, so the backlog can never form — plus fast recovery if one ever does.</p>
+
+<h2>2. The three moves that make it fast</h2>
+<div class="cards">
+  <div class="card">
+    <h4>1 · Ordering moved to read time</h4>
+    <p>Every log record carries a timestamp plus a unique <code>(src, seq)</code> key. The API sorts and dedupes when the log is <em>read</em>. Consumers therefore need no ordering, no per-document affinity, no coordination — they scale wide.</p>
+  </div>
+  <div class="card">
+    <h4>2 · Envelope packing</h4>
+    <p>~650 log lines ride in one gzip-compressed queue message (48 KiB usable after Base64). 2M lines become ~3,200 queue messages. Both enqueue and dequeue traffic shrink ~600×.</p>
+  </div>
+  <div class="card">
+    <h4>3 · Append Blob + JSON-lines</h4>
+    <p>One atomic <code>AppendBlock</code> per document batch replaces download-modify-upload of a JSON array. Concurrent appends from many replicas are safe (atomic per call).</p>
+  </div>
+</div>
+<p>Move 1 is the one that matters most: the ordering rule was the entire reason for the single consumer. Once ordering is a read-time concern, the consumer count is just a throughput dial (KEDA in production).</p>
+
+<h2>3. Architecture</h2>
+<figure>
+<div class="mermaid-wrap">
+<pre class="mermaid">
+flowchart LR
+  subgraph prod["Document pipeline (many pods: ingestion, extraction, enrichment, submission)"]
+    app["App code<br/>Log.ForContext('DocGuid', id)"] --> route{"Serilog<br/>sub-loggers"}
+    route -- "no DocGuid" --> console["Console sink<br/>→ k8s aggregator → New Relic"]
+    route -- "has DocGuid" --> sink["QueueLogSink<br/>IBatchedLogEventSink, ~2s flush"]
+  end
+  sink -- "gzip envelope<br/>~650 lines/msg" --> q[("Azure Storage Queue<br/>doc-logs")]
+  q -- "DequeueCount &gt; 2" --> poison[("doc-logs-poison")]
+  subgraph cons["Consumers (N replicas × 4 pipelines, no coordination)"]
+    w1["Worker"] & w2["Worker"] & w3["Worker"]
+  end
+  q -- "ReceiveMessages(32)" --> cons
+  cons -- "AppendBlock per doc<br/>JSON-lines" --> blob[("Blob container doc-logs<br/>{docGuid}/log.jsonl")]
+  blob -- "download + dedupe + sort" --> api["LogApi<br/>GET /api/documents/{id}/logs"]
+  api --> viewer["Your viewer UI"]
+</pre>
+</div>
+<figcaption>DocGuid logs never touch New Relic. Any worker can process any message; ordering is reconstructed at read time from <code>ts</code> + <code>(src, seq)</code>.</figcaption>
+</figure>
+
+<h2>4. Wire formats</h2>
+<h3>Record — one JSON line per log event</h3>
+<pre><code>{ "ts": "2026-08-28T10:43:29.9251356Z",  // UTC ISO-8601, stamped at log time
+  "level": "Information",
+  "msg": "Processing step 0 of document", // rendered message text
+  "ex": null,                             // full exception ToString, or null
+  "docGuid": "02046204-aec3-4a01-a736-a63c153e01b8",
+  "src": "829317ac",                      // random id per producer instance
+  "seq": 64 }                             // per-instance counter</code></pre>
+<p><code>(src, seq)</code> is globally unique. A document's ~200 lines come from up to 4 different services (4 different <code>src</code> values) over its ~2-minute lifetime — the read-time sort is what merges them into one coherent log.</p>
+
+<h3>Envelope — one queue message</h3>
+<pre><code>{ "v": 1, "lines": [ ...records... ] }   →  gzip  →  Base64  →  SendMessage</code></pre>
+<p>Packed until the raw JSON reaches 128 KiB, which lands comfortably under the 48 KiB post-Base64 queue limit after compression. Mixed DocGuids per envelope are fine — no affinity needed.</p>
+
+<h3>Reader contract (any consumer of the blob files)</h3>
+<ol>
+  <li>Parse JSON-lines.</li>
+  <li><strong>Dedupe</strong> by <code>(src, seq)</code> — at-least-once delivery means rare replays are expected and harmless.</li>
+  <li><strong>Sort</strong> by <code>ts</code> ascending, tie-break by <code>(src, seq)</code>.</li>
+</ol>
+
+<h2>5. The harness</h2>
+<p>The POC is an <strong>Aspire 13.5</strong> distributed app using the single-file C# AppHost (<code>apphost.cs</code>, no .csproj). Azure Storage is emulated by <strong>Azurite</strong> in Docker with pinned host ports (blob <code>27000</code>, queue <code>27001</code>) so tooling can reach it directly.</p>
+<div class="table-wrap"><table>
+  <tr><th>Component</th><th>What it is</th></tr>
+  <tr><td><code>apphost.cs</code></td><td>Aspire AppHost: Azurite emulator, <code>doc-logs</code> + <code>doc-logs-poison</code> queues, <code>doc-logs</code> blob container, and the three projects below. All load knobs are env vars here.</td></tr>
+  <tr><td><code>src/Producer</code></td><td>Load generator + the real <code>QueueLogSink</code> (Serilog 4 <code>IBatchedLogEventSink</code>). Emits N docs × M lines with realistic burstiness (~200 docs in flight) and 10% "monster" docs.</td></tr>
+  <tr><td><code>src/Consumer</code></td><td>The document log handler. <strong>4 replicas × 4 dequeue pipelines.</strong> Batch-dequeues 32 messages, groups lines by DocGuid across the whole batch, parallel-appends, then deletes messages only after every append succeeded.</td></tr>
+  <tr><td><code>src/LogApi</code></td><td>Minimal API on fixed port <code>27080</code>: document list + paged per-document log read.</td></tr>
+  <tr><td><code>tools/depth.cs</code>, <code>tools/verify.cs</code>, <code>tools/pickdoc.cs</code></td><td>Single-file C# scripts (<code>dotnet run tools/depth.cs</code>): queue depth / blob count, content verification, grab a DocGuid.</td></tr>
+</table></div>
+
+<h3>Load knobs (env vars on the producer in <code>apphost.cs</code>)</h3>
+<div class="table-wrap"><table>
+  <tr><th>Knob</th><th>Meaning</th><th class="num">Resting default</th></tr>
+  <tr><td><code>DOCS</code></td><td>Total documents</td><td class="num">20,000</td></tr>
+  <tr><td><code>LINES_PER_DOC</code></td><td>Lines per normal doc</td><td class="num">200</td></tr>
+  <tr><td><code>BIG_DOC_PCT</code> / <code>BIG_DOC_LINES</code></td><td>% of monster docs / their line count</td><td class="num">10 / 2,000</td></tr>
+  <tr><td><code>PARALLEL_DOCS</code></td><td>Docs in flight at once (temporal locality)</td><td class="num">200</td></tr>
+  <tr><td><code>RATE</code></td><td>Paced lines/sec (0 = as fast as possible)</td><td class="num">0</td></tr>
+  <tr><td><code>MAX_LINES</code></td><td>Stop after this many lines</td><td class="num">100,000</td></tr>
+  <tr><td><code>START_DELAY_SEC</code> (consumer)</td><td>Hold consumers to pre-build a backlog</td><td class="num">0</td></tr>
+</table></div>
+<p>Resting defaults give a quick ~30-second demo run. The acceptance tests below used bigger values.</p>
+
+<h2>6. Running it</h2>
+<h3>Prerequisites</h3>
+<ul>
+  <li>.NET 10 SDK</li>
+  <li>Docker Desktop (for Azurite)</li>
+  <li>Aspire CLI 13.5.3 (<code>dotnet tool install -g Aspire.Cli</code>)</li>
+</ul>
+<h3>Start</h3>
+<pre><code>aspire start        # builds everything, starts Azurite + producer + 4 consumers + API
+aspire stop         # tear down</code></pre>
+<p>The dashboard URL is printed on start — resource states, logs per replica, and the blob container are all browsable there.</p>
+
+<h3>Query the logs (real session transcript)</h3>
+<pre><code>$ curl http://localhost:27080/api/documents?limit=3
+[ "00343ae5-344e-418e-bb0c-e25f55f115c5",
+  "011cb36e-6166-40ae-bd26-4db34b850d1a",
+  "01719060-a2ae-4c01-af78-e07abf6ced50" ]
+
+$ curl "http://localhost:27080/api/documents/00343ae5-.../logs?page_size=3&page=1"
+{
+  "docGuid": "00343ae5-344e-418e-bb0c-e25f55f115c5",
+  "page": 1, "pageSize": 3,
+  "totalLines": 200, "totalPages": 67,
+  "lines": [
+    { "rowId": 1, "ts": "2026-08-28T10:43:29.9251356Z", "level": "Information",
+      "msg": "Processing step 0 of document", "ex": null, "src": "829317ac", "seq": 64 },
+    ...
+  ]
+}</code></pre>
+
+<h2>7. How the read API works</h2>
+<div class="table-wrap"><table>
+  <tr><th>Endpoint</th><th>Behavior</th></tr>
+  <tr><td><code>GET /api/documents?limit=25</code></td><td>Lists DocGuids (derived from blob name prefixes; listing is sorted so prefixes dedupe adjacently).</td></tr>
+  <tr><td><code>GET /api/documents/{docGuid}/logs?page_size=25&amp;page=1</code></td><td>Downloads <code>{docGuid}/log.jsonl</code>, applies the reader contract (dedupe → sort), then pages. 404 if the doc has no logs. <code>page_size</code> clamped to 1–1000.</td></tr>
+</table></div>
+<p><strong>rowId</strong> is the record's position in the sorted, deduped list (1-based). Ordering is already fully deterministic without it — <code>(src, seq)</code> breaks timestamp ties — so rowId is a UI convenience: stable row keys, "jump to line", range selection.</p>
+<p><strong>Partitioning:</strong> one shared container (<code>doc-logs</code>); each document is a prefix: <code>{docGuid}/log.jsonl</code>. Production currently uses container-per-document — that also works and is a one-line path change. One container keeps lifecycle rules (e.g. auto-delete after N months) in a single place.</p>
+
+<h2>8. Measured results</h2>
+<p>Laptop, Azurite in Docker, 4 consumer replicas × 4 pipelines. For scale: 20k docs/day × 200 lines over 8 h averages <strong>~139 logs/s</strong>.</p>
+<div class="table-wrap"><table>
+  <tr><th>Test</th><th>Setup</th><th>Result</th><th></th></tr>
+  <tr>
+    <td><strong>Keep-up</strong> (the pipe)</td>
+    <td>1.5M lines paced at 5,000 lines/s (~36× the peak-day average), 10% monster docs, ~5 min</td>
+    <td class="num">Max queue depth <strong>20 messages</strong>; 0 most of the run. Zero poison.</td>
+    <td><span class="pill ok">PASS</span></td>
+  </tr>
+  <tr>
+    <td><strong>Burst drain</strong> (funnel recovery)</td>
+    <td>Consumers held 75 s while producer enqueued 2M lines (3,200 envelopes in ~26 s)</td>
+    <td class="num">Backlog drained to zero in <strong>~67 s</strong></td>
+    <td><span class="pill ok">PASS</span></td>
+  </tr>
+  <tr>
+    <td><strong>Correctness</strong></td>
+    <td>Full 2M-line end-to-end run, then sampled 20 random documents</td>
+    <td>Exact blob count (1 per doc), 0 poison, every sampled file: complete, valid JSON-lines, zero duplicate <code>(src, seq)</code>, all lines in the right file</td>
+    <td><span class="pill ok">PASS</span></td>
+  </tr>
+</table></div>
+<p>For contrast: the production incident that motivated this POC was a 2M+ message backlog that took hours-to-days to clear. The same backlog here cleared in about a minute.</p>
+
+<h2>9. Limitations &amp; honest caveats</h2>
+<div class="callout warn">
+  <p><strong>Azurite is the ceiling, not Azure.</strong> Azurite is a single Node.js process; it caps the whole sim at roughly 2,500–3,000 lines/s combined (produce + consume + API). All numbers above are <em>lower bounds on the mechanics</em>, not Azure throughput benchmarks. Real Azure Storage targets ~2,000 msgs/s per queue — at ~650 lines/envelope that alone is ~1.3M lines/s of headroom. Azurite also lists concurrent-append support as limited, which real Azure does not.</p>
+</div>
+<ul>
+  <li><strong>Loss window:</strong> the sink buffers ~2 s in memory (Serilog batching). Graceful shutdown flushes (<code>Log.CloseAndFlush()</code>); a hard kill (OOM, power) can lose that window. This matches the accepted requirement ("minimal loss", not strict) and is no worse than the current async sink.</li>
+  <li><strong>At-least-once, not exactly-once:</strong> a crash between append and message delete replays the batch → duplicate lines in the blob. By design; the reader dedupes by <code>(src, seq)</code>. Consumers delete a batch's messages only after <em>every</em> append in the batch succeeded.</li>
+  <li><strong>Append Blob 50,000-block cap:</strong> with batched appends a doc uses a handful of blocks; unreachable at ~200–2,000 lines/doc. If ever hit (HTTP 409), the planned mitigation is rolling to <code>log-2.jsonl</code> — noted in code, not implemented.</li>
+  <li><strong>Read API loads the whole file per request:</strong> fine at ≤ a few MB per doc (a 2,000-line monster is ~500 KB). Add caching or streaming only if docs ever grow past that.</li>
+  <li><strong>No auth on the API</strong> — accepted: it sits behind a private network, and the log-read API is the only piece with any external reach.</li>
+</ul>
+
+<h2>10. Gotchas we hit (so you don't)</h2>
+<ul>
+  <li><strong>Aspire keyed clients:</strong> registering an unkeyed <code>AddAzureQueue</code> <em>and</em> a keyed one nulls the unkeyed client. If a service needs two queues, register <em>both</em> keyed (<code>AddKeyedAzureQueue</code> + <code>[FromKeyedServices]</code>).</li>
+  <li><strong>AppHost API shape:</strong> <code>AddQueue</code> / <code>AddBlobContainer</code> hang off the <em>storage</em> resource, not the queue/blob service builders — and a queue and a container can't share a resource name (names are global per AppHost).</li>
+  <li><strong>Azurite flags:</strong> <code>--inMemoryPersistence</code> conflicts with the <code>--location</code> arg Aspire always passes; the container exits at boot. Don't use it.</li>
+  <li><strong><code>aspire logs</code> streams</strong> (blocks) while the app runs — poll state via the pinned Azurite ports (<code>tools/depth.cs</code>) instead of scraping logs.</li>
+  <li><strong>Replicated resources:</strong> <code>aspire wait consumer</code> fails on a <code>WithReplicas</code> resource (replica names get random suffixes). Use <code>aspire logs consumer</code> or the dashboard.</li>
+  <li><strong>Batching sink backpressure:</strong> Serilog's batching queue drops events when full. The generator monitors emitted-vs-sent and pauses — in production the natural log rate never approaches this, but know the queue limit exists (<code>QueueLimit</code>, we set 500k).</li>
+</ul>
+
+<h2>11. Porting to production — checklist</h2>
+<ol>
+  <li><strong>Sink:</strong> lift <code>QueueLogSink</code> + the sub-logger routing (<code>Filter.ByIncludingOnly(Matching.WithProperty("DocGuid"))</code>) into your shared logging package. Requires Serilog ≥ 4.0 (batching is in core now; the old PeriodicBatching package is legacy).</li>
+  <li><strong>Consumer:</strong> the worker is a plain queue-draining service — deploy like any other KEDA-scaled deployment, scaling on queue length instead of CPU. Replica count is a pure throughput dial; replicas never coordinate.</li>
+  <li><strong>Viewer:</strong> point it at the LogApi pattern (or embed the reader contract — dedupe by <code>(src, seq)</code>, sort by <code>ts</code>) instead of the old JSON array files.</li>
+  <li><strong>Decide partitioning:</strong> keep container-per-doc for parity, or move to one-container-with-prefix (recommended; one lifecycle policy).</li>
+  <li><strong>Migration is out of scope</strong> of this POC — old JSON-array files stay readable by the old path until they age out.</li>
+</ol>
+
+<h2>12. Code-review hardening (same day)</h2>
+<p>A Codex review of the full POC turned up several correctness and safety gaps. Fixed the same day, since this only ships behind a private network — the log-read API is the one piece with any external reach, and the fixes below don't depend on that boundary.</p>
+<div class="table-wrap"><table>
+  <tr><th>Fix</th><th>Why</th></tr>
+  <tr><td>Bad queue message no longer kills a worker pipeline</td><td>Decode/parse failures are now caught per message instead of crashing the loop that handles it. A replica silently losing one of its four pipelines, permanently, was the real risk.</td></tr>
+  <tr><td>Zero-length append loop fixed</td><td>A single record bigger than one append chunk could make the block-splitter compute a 0-byte block and stop advancing. It now takes the whole oversized line instead of stalling.</td></tr>
+  <tr><td>Batch size check counts real bytes</td><td>The 128 KiB envelope cap was measured in UTF-16 characters, not UTF-8 bytes — non-ASCII content could sneak past it. Now counted correctly.</td></tr>
+  <tr><td>Decompressed message size capped at 16 MB</td><td>Gzip expansion was unbounded before. A pathological message could no longer balloon into a large in-memory buffer.</td></tr>
+  <tr><td>Visibility timeout: 2 min → 30 min</td><td>Long enough for a normal batch to finish without another worker picking up the same message mid-flight.</td></tr>
+  <tr><td>Poison threshold: 5 dequeues → 2 appearances</td><td>A message gets one retry; the second failure sends it straight to <code>doc-logs-poison</code> instead of cycling six times first.</td></tr>
+  <tr><td><code>tools/verify.cs</code> matches real line counts</td><td>It was still asserting the old fixed 100-line test fixture; it now checks the actual 200 / 2,000-line config and would have been silently reporting healthy runs as broken.</td></tr>
+</table></div>
+<p><strong>Left alone, on purpose:</strong> API auth — this sits behind a private network, and adding a key here would guard against a threat model that doesn't apply. Dead-letter/poison-queue handling beyond the send is still out of scope.</p>
+
+<p class="meta">Full decision history: <code>.scratch/doc-log-fast-drain/map.md</code> in the repo — every design decision links to the ticket that resolved it, including the research citations (Azure Storage limits, Serilog 4 batching API, Azurite fidelity).</p>
+</main>
+
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "default"
+  });
+</script>
+</body>
+</html>
